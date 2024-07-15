@@ -23,11 +23,11 @@ def heuristic_misplaced_tiles(state):
     goal_state = [
         [1, 2, 3],
         [4, 5, 6],
-        [7, 8, 0]
+        [7, 8, 'b']
     ]
     misplaced_tiles = sum(
         1 for i in range(3) for j in range(3) 
-        if state.board[i][j] != 0 and state.board[i][j] != goal_state[i][j]
+        if state.board[i][j] != 'b' and state.board[i][j] != goal_state[i][j]
     )
     return misplaced_tiles
 
@@ -36,28 +36,47 @@ def heuristic_manhattan_distance(state):
     goal_state = [
         [1, 2, 3],
         [4, 5, 6],
-        [7, 8, 0]
+        [7, 8, 'b']
     ]
     distance = 0
     for i in range(3):
         for j in range(3):
-            if state.board[i][j] != 0:
+            if state.board[i][j] != 'b':
                 x, y = divmod(state.board[i][j] - 1, 3)
                 distance += abs(x - i) + abs(y - j)
     return distance
+
+def heuristic_misplaced_row_column(state):
+    """Heuristic counting the number of tiles misplaced in their row and column."""
+    goal_state = [
+        [1, 2, 3],
+        [4, 5, 6],
+        [7, 8, 'b']
+    ]
+    misplaced_row_column = 0
+    for i in range(3):
+        for j in range(3):
+            if state.board[i][j] != 'b':
+                correct_i, correct_j = divmod(state.board[i][j] - 1, 3)
+                if correct_i != i or correct_j != j:
+                    if correct_i != i:
+                        misplaced_row_column += 1
+                    if correct_j != j:
+                        misplaced_row_column += 1
+    return misplaced_row_column
 
 def goal_test(state):
     return state.board == [
         [1, 2, 3],
         [4, 5, 6],
-        [7, 8, 0]
+        [7, 8, 'b']
     ]
 
 def get_successors(state):
     """Generate successors of the given state."""
     successors = []
     board = state.board
-    i, j = next((i, j) for i, row in enumerate(board) for j, val in enumerate(row) if val == 0)
+    i, j = next((i, j) for i, row in enumerate(board) for j, val in enumerate(row) if val == 'b')
     actions = [(-1, 0, 'up'), (1, 0, 'down'), (0, -1, 'left'), (0, 1, 'right')]
     
     for di, dj, action in actions:
@@ -69,14 +88,15 @@ def get_successors(state):
     
     return successors
 
-def best_first_search(initial_state, heuristic_fn):
+def best_first_search(initial_state, heuristic_fn, max_steps=1000):
     """Best-first search algorithm."""
     fringe = []
     initial_state.f_cost = heuristic_fn(initial_state)
     heapq.heappush(fringe, initial_state)
     explored = set()
+    steps = 0
 
-    while fringe:
+    while fringe and steps < max_steps:
         node = heapq.heappop(fringe)
         if goal_test(node):
             return node
@@ -86,6 +106,8 @@ def best_first_search(initial_state, heuristic_fn):
             if successor not in explored:
                 successor.f_cost = heuristic_fn(successor)
                 heapq.heappush(fringe, successor)
+        
+        steps += 1
 
     return None
 
@@ -96,29 +118,72 @@ def print_solution(solution):
         steps.append(solution)
         solution = solution.parent
     steps.reverse()
-    for step in steps:
-        for row in step.board:
-            print(row)
-        print()
+    
+    solution_path = " → ".join(
+        f"({' '.join(str(num) for row in step.board for num in row)})"
+        for step in steps
+    )
+    return solution_path, len(steps) - 1
 
-# Initial state of the 8-puzzle problem
-initial_board = [
-    [7, 2, 4],
-    [5, 6, 0],
-    [8, 3, 1]
+def run_experiments(initial_states, heuristics, max_steps=1000):
+    for heuristic_fn in heuristics:
+        print(f"Using {heuristic_fn.__name__}:")
+        total_steps = 0
+        solution_count = 0
+        
+        for i, initial_board in enumerate(initial_states):
+            initial_state = PuzzleState(initial_board)
+            solution = best_first_search(initial_state, heuristic_fn, max_steps)
+            
+            print(f"Initial State {i + 1}:")
+            if solution:
+                solution_path, steps = print_solution(solution)
+                print(solution_path)
+                total_steps += steps
+                solution_count += 1
+            else:
+                print("No solution found or maximum steps reached.")
+            print("=" * 20)
+        
+        if solution_count > 0:
+            average_steps = total_steps / solution_count
+        else:
+            average_steps = 0
+        
+        print(f"Average number of steps: {average_steps}")
+        print("=" * 40)
+
+# Initial states of the 8-puzzle problem
+initial_states = [
+    [
+        [7, 2, 4],
+        [5, 6, 'b'],
+        [8, 3, 1]
+    ],
+    [
+        [1, 2, 3],
+        [4, 5, 6],
+        [7, 'b', 8]
+    ],
+    [
+        [8, 6, 7],
+        [2, 5, 4],
+        [3, 'b', 1]
+    ],
+    [
+        [1, 3, 4],
+        [8, 'b', 2],
+        [7, 6, 5]
+    ],
+    [
+        [2, 8, 1],
+        [ 'b', 4, 3],
+        [7, 6, 5]
+    ]
 ]
 
-initial_state = PuzzleState(initial_board)
+# Heuristics to use
+heuristics = [heuristic_misplaced_tiles, heuristic_manhattan_distance, heuristic_misplaced_row_column]
 
-# Choose the heuristic function to use: heuristic_misplaced_tiles or heuristic_manhattan_distance
-heuristic_fn = heuristic_manhattan_distance
-
-# Solve the puzzle
-solution = best_first_search(initial_state, heuristic_fn)
-
-# Print the solution steps
-if solution:
-    print("Solution found!")
-    print_solution(solution)
-else:
-    print("No solution found.")
+# Run the experiments
+run_experiments(initial_states, heuristics)
