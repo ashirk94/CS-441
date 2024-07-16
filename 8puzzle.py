@@ -1,3 +1,6 @@
+# CS 441 Programming Assignment 1
+# Alan Shirk - alans@pdx.edu
+
 import heapq
 
 goal_state = ['b', 1, 2, 3, 4, 5, 6, 7, 8]
@@ -10,9 +13,9 @@ class PuzzleState:
         self.action = action
         self.path_cost = path_cost
         self.depth = 0 if parent is None else parent.depth + 1
-        self.g_cost = path_cost  # Actual cost to reach this node
-        self.h_cost = 0  # Heuristic cost to reach the goal
-        self.f_cost = 0  # Total cost (g_cost + h_cost)
+        self.g_cost = path_cost 
+        self.h_cost = 0
+        self.f_cost = 0
 
     def __lt__(self, other):
         return self.f_cost < other.f_cost
@@ -58,7 +61,7 @@ def goal_test(state):
     return state.board == goal_state
 
 def expand(node):
-    """Expand the given node to generate successors."""
+    """Expands the given node to generate successors."""
     successors = []
     board = node.board
     i = board.index('b')
@@ -75,34 +78,41 @@ def expand(node):
     
     return successors
 
+
 def tree_search(initial_state, heuristic_fn, max_steps, use_a_star=False):
-    """General tree search algorithm."""
+    """Best first search based on the general tree search algorithm."""
     fringe = []
+    fringe_dict = {}
     initial_state.h_cost = heuristic_fn(initial_state)
     initial_state.f_cost = initial_state.g_cost + initial_state.h_cost if use_a_star else initial_state.h_cost
     heapq.heappush(fringe, (initial_state.f_cost, initial_state))
+    fringe_dict[tuple(initial_state.board)] = initial_state
     explored = set()
     steps = 0
 
     while fringe and steps < max_steps:
         _, node = heapq.heappop(fringe)
+        fringe_dict.pop(tuple(node.board), None)
+        
         if goal_test(node):
             return node
         
-        explored.add(node)
+        explored.add(tuple(node.board))
         for successor in expand(node):
-            if successor not in explored:
+            if tuple(successor.board) not in explored and tuple(successor.board) not in fringe_dict:
                 successor.g_cost = node.g_cost + 1
                 successor.h_cost = heuristic_fn(successor)
                 successor.f_cost = successor.g_cost + successor.h_cost if use_a_star else successor.h_cost
                 heapq.heappush(fringe, (successor.f_cost, successor))
+                fringe_dict[tuple(successor.board)] = successor
         
         steps += 1
 
+    print(f"Reached max steps: {max_steps}")
     return None
 
 def print_solution(solution):
-    """Print the solution steps."""
+    """Prints the solution path."""
     steps = []
     while solution:
         steps.append(solution)
@@ -117,8 +127,15 @@ def print_solution(solution):
 
 def run_experiments(initial_states, heuristics, max_steps):
     print("Best-First Search:")
+    print("=" * 50)
     for heuristic_fn in heuristics:
-        print(f"Heuristic - {heuristic_fn.__name__}:")
+        if (heuristic_fn.__name__ == 'heuristic_misplaced_row_column'):
+            print("Number misplaced in row and column heuristic:")
+        elif (heuristic_fn.__name__ == 'heuristic_misplaced_tiles'):
+            print("Total number misplaced heuristic:")
+        elif (heuristic_fn.__name__ == 'heuristic_manhattan_distance'):
+            print("Manhattan distance heuristic:")
+        print("=" * 50)
         total_steps = 0
         solution_count = 0
         
@@ -139,14 +156,21 @@ def run_experiments(initial_states, heuristics, max_steps):
         if solution_count > 0:
             average_steps = total_steps / solution_count
         else:
-            average_steps = 0
+            average_steps = float('inf')
         
         print(f"Average number of steps: {average_steps}")
-        print("=" * 40)
+        print("=" * 50)
 
     print("A* Search:")
+    print("=" * 50)
     for heuristic_fn in heuristics:
-        print(f"Heuristic - {heuristic_fn.__name__}:")
+        if (heuristic_fn.__name__ == 'heuristic_misplaced_row_column'):
+            print("Number misplaced in row and column heuristic:")
+        elif (heuristic_fn.__name__ == 'heuristic_misplaced_tiles'):
+            print("Total number misplaced heuristic:")
+        elif (heuristic_fn.__name__ == 'heuristic_manhattan_distance'):
+            print("Manhattan distance heuristic:")
+        print("=" * 50)
         total_steps = 0
         solution_count = 0
         
@@ -170,9 +194,10 @@ def run_experiments(initial_states, heuristics, max_steps):
             average_steps = 0
         
         print(f"Average number of steps: {average_steps}")
-        print("=" * 40)
+        print("=" * 50)
 
-# Initial states
+# Setting up and running the 8-puzzle simulation
+
 initial_states = [
     [1, 2, 'b', 3, 4, 5, 6, 7, 8],
     [1, 2, 3, 4, 5, 6, 'b', 7, 8],
@@ -181,8 +206,6 @@ initial_states = [
     [5, 4, 'b', 6, 1, 8, 7, 3, 2]
 ]
 
-# Heuristics
 heuristics = [heuristic_misplaced_tiles, heuristic_manhattan_distance, heuristic_misplaced_row_column]
 
-# Run the experiments
 run_experiments(initial_states, heuristics, max_steps)
